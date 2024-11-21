@@ -77,7 +77,7 @@ class TorusVisualizer:
 
 # Testen der Visualisierung
 if __name__ == "__main__":
-    visualizer = TorusVisualizer(rows=5, cols=5, coupling_strength=1.0)
+    visualizer = TorusVisualizer(rows=15, cols=15, coupling_strength=1.0)
     try:
         visualizer.start_simulation()
     except KeyboardInterrupt:

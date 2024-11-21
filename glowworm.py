@@ -8,9 +8,9 @@ import numpy as np
 
 class Glowworm:
     def __init__(self):
-        self.phase = random.uniform(0, 0.1)
-        self.natural_frequency = random.uniform(0.5, 0.6)
-        self.coupling_strength = 0.7
+        self.phase = random.uniform(0, 2*math.pi)
+        self.natural_frequency = random.uniform(0.5, 1)
+        self.coupling_strength = 5
         self.neighbors = []
         self.lock = threading.Lock()
         self.running = False

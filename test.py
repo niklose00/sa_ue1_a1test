@@ -1,125 +1,87 @@
-import random
-import math
 import threading
-import time
+import tkinter as tk
 import numpy as np
+import time
 
-class Glowworm:
-    def __init__(self, natural_frequency, initial_phase=0.0):
-        self.phase = random.uniform(0, 2 * math.pi)  # zyklisch im Bereich von 0 bis 2𝜋
-        self.natural_frequency = natural_frequency  # ωi: Die natürliche Frequenz des Glühwürmchens i
-        self.neighbors = []
-        self.coupling_strength = 1.0  # K: Die Kopplungsstärke
-        self.lock = threading.Lock()
-        self.running = False  # Steuerung für den Thread
+# Parameters for Kuramoto Model
+K = 1.0  # Coupling constant
+dt = 0.05  # Time step
 
-    def add_neighbor(self, neighbor):
-        self.neighbors.append(neighbor)
+# Torus size
+GRID_SIZE = 10
 
-    def update_phase(self):
-        with self.lock:  # Verhindert Race-Conditions
-            # Speicher die alten Phasen der Nachbarn
-            old_phases = [neighbor.phase for neighbor in self.neighbors]
-            
-            print(f"Aktuelle Phasen (alt): {old_phases}")
+# Define the Firefly class
+class Firefly:
+    def __init__(self, x, y, phase, omega, canvas, rect_id):
+        self.x = x
+        self.y = y
+        self.phase = phase
+        self.omega = omega
+        self.canvas = canvas
+        self.rect_id = rect_id
 
-            # Berechne den Einfluss der Nachbarn auf die Phase (nur mit alten Phasenwerten)
-            neighbor_influence = sum(math.sin(neighbor.phase - self.phase) for neighbor in self.neighbors)
-            phase_change = self.natural_frequency + (self.coupling_strength / len(self.neighbors)) * neighbor_influence
-            
-            # Update die eigene Phase
-            self.phase += phase_change
-            self.phase = self.phase % (2 * math.pi)  # Halte die Phase im Bereich 0 bis 2*pi
-            
-            print(f"Neue Phase: {self.phase:.2f}")
+    def update_phase(self, neighbors):
+        # Update phase based on neighbors using Kuramoto model
+        coupling_sum = sum(np.sin(neighbor.phase - self.phase) for neighbor in neighbors)
+        self.phase += dt * (self.omega + (K / len(neighbors)) * coupling_sum)
+        self.phase %= 2 * np.pi
 
-    def start(self):
-        """Startet den Thread für das Glühwürmchen."""
-        self.running = True
-        self.thread = threading.Thread(target=self.run)
-        self.thread.start()
+    def update_display(self):
+        # Update color of the firefly rectangle based on its phase
+        brightness = int((np.sin(self.phase) + 1) * 127.5)  # Map phase to brightness value (0-255)
+        color = f"#{brightness:02x}{brightness:02x}00"  # Yellowish color gradient
+        self.canvas.itemconfig(self.rect_id, fill=color)
 
-    def run(self):
-        """Kontinuierliche Schleife zur Aktualisierung der Phase."""
-        while self.running:
-            self.update_phase()
-            time.sleep(1)  # Frequenz der Aktualisierungen; kann je nach Bedarf angepasst werden
+# Thread function for each firefly
+def firefly_thread(firefly, fireflies, grid_size):
+    while True:
+        # Get neighbors in the torus structure
+        neighbors = []
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nx, ny = (firefly.x + dx) % grid_size, (firefly.y + dy) % grid_size
+            neighbors.append(fireflies[nx][ny])
 
-    def stop(self):
-        """Beendet den Thread für das Glühwürmchen."""
-        self.running = False
-        self.thread.join()
+        # Update phase and display
+        firefly.update_phase(neighbors)
+        firefly.update_display()
 
-    def __repr__(self):
-        return f"Glowworm(Phase: {self.phase:.2f}, Frequency: {self.natural_frequency:.2f}, Neighbors: {len(self.neighbors)})"
+        # Print phase to console
+        print(f"Firefly at ({firefly.x}, {firefly.y}) phase: {firefly.phase:.2f}")
+        
+        time.sleep(dt)
 
+# Main function
+def main():
+    # Initialize Tkinter window
+    root = tk.Tk()
+    root.title("Firefly Synchronization Simulation")
+    canvas = tk.Canvas(root, width=500, height=500, bg="black")
+    canvas.pack()
 
-class Torus:
-    def __init__(self, rows, cols, coupling_strength):
-        self.rows = rows
-        self.cols = cols
-        self.coupling_strength = coupling_strength
-        self.grid = [[Glowworm(natural_frequency=random.uniform(0.5, 1.5)) for _ in range(cols)] for _ in range(rows)]
-        self._set_neighbors()
+    # Initialize fireflies in a torus structure
+    rect_size = 500 // GRID_SIZE
+    fireflies = []
+    for x in range(GRID_SIZE):
+        row = []
+        for y in range(GRID_SIZE):
+            phase = np.random.uniform(0, 2 * np.pi)
+            omega = np.random.uniform(0.9, 1.1)  # Natural frequency, slightly varied for each firefly
+            rect_id = canvas.create_rectangle(x * rect_size, y * rect_size, (x + 1) * rect_size, (y + 1) * rect_size, fill="yellow")
+            firefly = Firefly(x, y, phase, omega, canvas, rect_id)
+            row.append(firefly)
+        fireflies.append(row)
 
-        # Setze Kopplungsstärke für alle Glühwürmchen
-        for row in range(self.rows):
-            for col in range(self.cols):
-                self.grid[row][col].coupling_strength = coupling_strength
+    # Create and start a thread for each firefly
+    threads = []
+    for x in range(GRID_SIZE):
+        for y in range(GRID_SIZE):
+            t = threading.Thread(target=firefly_thread, args=(fireflies[x][y], fireflies, GRID_SIZE))
+            t.daemon = True  # Set as a daemon thread to end with main program
+            t.start()
+            threads.append(t)
 
-    def _set_neighbors(self):
-        for row in range(self.rows):
-            for col in range(self.cols):
-                glowworm = self.grid[row][col]
-                top = self.grid[(row - 1) % self.rows][col]
-                bottom = self.grid[(row + 1) % self.rows][col]
-                left = self.grid[row][(col - 1) % self.cols]
-                right = self.grid[row][(col + 1) % self.cols]
-                glowworm.add_neighbor(top)
-                glowworm.add_neighbor(bottom)
-                glowworm.add_neighbor(left)
-                glowworm.add_neighbor(right)
+    # Run the Tkinter main loop
+    root.mainloop()
 
-    def start(self):
-        # Startet alle Glühwürmchen-Threads
-        for row in range(self.rows):
-            for col in range(self.cols):
-                self.grid[row][col].start()
-
-    def stop(self):
-        # Stoppt alle Glühwürmchen-Threads
-        for row in range(self.rows):
-            for col in range(self.cols):
-                self.grid[row][col].stop()
-
-    def degree_of_synchronization(self):
-        """Berechnet den Synchronisationsgrad r basierend auf den aktuellen Phasen der Glühwürmchen."""
-        N = self.rows * self.cols
-        phases = [self.grid[row][col].phase for row in range(self.rows) for col in range(self.cols)]
-        # Berechnung des komplexen Mittelwerts
-        complex_sum = np.sum(np.exp(1j * np.array(phases)))
-        r = abs(complex_sum) / N
-        return r
-
-    def __repr__(self):
-        representation = ""
-        for row in self.grid:
-            representation += " | ".join(f"{worm.phase:.2f}" for worm in row) + "\n"
-        return representation
-
-
-# Testen der Torus-Struktur und des Multithreadings
 if __name__ == "__main__":
-    torus = Torus(rows=3, cols=3, coupling_strength=1.0)
-    torus.start()
-
-    try:
-        for step in range(5):
-            print(f"Aktueller Zustand des Torus nach Schritt {step + 1}:")
-            print(torus)
-            sync_degree = torus.degree_of_synchronization()
-            print(f"Grad der Synchronisation (r): {sync_degree:.2f}")
-            time.sleep(1)
-    finally:
-        torus.stop()
-        print("Simulation beendet.")
+    main()
