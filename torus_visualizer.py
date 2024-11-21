@@ -1,6 +1,8 @@
 import tkinter as tk
 from torus import Torus
 import time
+import math
+import threading
 
 class TorusVisualizer:
     def __init__(self, rows, cols, coupling_strength):
@@ -8,9 +10,10 @@ class TorusVisualizer:
         self.root.title("Glowworm Torus Synchronization")
         
         # Parameter für die Visualisierung
-        self.cell_size = 50  # Größe jedes Rechtecks
+        self.cell_size = 20  # Größe jedes Rechtecks
         self.rows = rows
         self.cols = cols
+        self.coupling_strength = coupling_strength
         self.torus = Torus(rows, cols, coupling_strength)
 
         # Canvas zum Zeichnen der Glühwürmchen
@@ -22,15 +25,16 @@ class TorusVisualizer:
             x * self.cell_size, y * self.cell_size,
             (x + 1) * self.cell_size, (y + 1) * self.cell_size,
             fill="black") for x in range(self.cols)] for y in range(self.rows)]
+        
+        # Label für die Anzeige des Synchronisationsgrads
+        self.sync_label = tk.Label(self.root, text="Grad der Synchronisation: 0.00", font=('Arial', 12))
+        self.sync_label.pack()
 
     def phase_to_color(self, phase):
-        """Konvertiert die Phase in eine Farbe: aus (schwarz) und an (gelb)."""
-        brightness = int((phase / (2 * 3.1415)) * 255)  # Normalisiere Phase auf [0, 255]
-        # Schwarz für "aus" und Gelb für "an"
-        color = f'#{brightness:02x}{brightness:02x}00'  # Von Schwarz nach Gelb
-        return color
-
-
+        normalized_phase = (phase / (2 * math.pi)) % 1
+        if abs(normalized_phase - 0.5) < 0.1:  # Toleranz von 0.1 für visuelle Synchronisation
+            return "yellow"
+        return "black"
 
     def update_gui(self):
         """Aktualisiert die Farben der Rechtecke basierend auf den Phasen der Glühwürmchen."""
@@ -40,13 +44,29 @@ class TorusVisualizer:
                 color = self.phase_to_color(glowworm.phase)
                 self.canvas.itemconfig(self.rectangles[row][col], fill=color)
         
+        # Berechnung und Anzeige des Synchronisationsgrads
+        sync_degree = self.torus.degree_of_synchronization()
+        self.sync_label.config(text=f"Grad der Synchronisation: {sync_degree:.2f}")
+        
         # Nächste Aktualisierung planen
-        self.root.after(100, self.update_gui)
+        if sync_degree < 1.0:  # Fortfahren, bis Synchronisationsgrad 1 erreicht wird
+            self.root.after(100, self.run_simulation_step)
+
+    def run_simulation_step(self):
+        """Führt einen Simulationsschritt aus und aktualisiert die GUI."""
+        self.torus.update_phases()
+        self.update_gui()
 
     def start_simulation(self):
         """Startet die Simulation und die GUI."""
+        # Erhöhe die Kopplungsstärke, um eine Synchronisation zu forcieren
+        self.torus.coupling_strength = 1.0  # Starker Kopplungsfaktor für schnellere Synchronisation
+        for row in range(self.rows):
+            for col in range(self.cols):
+                self.torus.grid[row][col].coupling_strength = 1.0
+
         self.torus.start()
-        self.update_gui()
+        self.run_simulation_step()
         self.root.mainloop()
 
     def stop_simulation(self):
@@ -57,7 +77,7 @@ class TorusVisualizer:
 
 # Testen der Visualisierung
 if __name__ == "__main__":
-    visualizer = TorusVisualizer(rows=3, cols=3, coupling_strength=2.0)
+    visualizer = TorusVisualizer(rows=5, cols=5, coupling_strength=1.0)
     try:
         visualizer.start_simulation()
     except KeyboardInterrupt:
