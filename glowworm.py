@@ -8,7 +8,7 @@ import numpy as np
 
 class Glowworm:
     def __init__(self, natural_frequency, initial_phase=0.0):
-        self.phase = np.random.uniform(0, 2*np.pi) #zyklisch im Bereich von 0 bis 2𝜋
+        self.phase = initial_phase #zyklisch im Bereich von 0 bis 2𝜋
         # self.phase = initial_phase #zyklisch im Bereich von 0 bis 2𝜋
         self.natural_frequency = natural_frequency #ωi: Die natürliche Frequenz des Glühwürmchens i
         self.neighbors = []
@@ -20,9 +20,17 @@ class Glowworm:
         self.neighbors.append(neighbor)
 
     def update_phase(self):
-        with self.lock:  # Verhindert Race-Conditions
-            neighbor_influence = sum(math.sin(neighbor.phase - self.phase) for neighbor in self.neighbors)
+        with self.lock:
+            # Kopiere die aktuellen Phasen der Nachbarn (alte Werte)
+            old_phases = [neighbor.phase for neighbor in self.neighbors]
+            
+            # Berechne den Einfluss der Nachbarn
+            neighbor_influence = sum(math.sin(old_phase - self.phase) for old_phase in old_phases)
+            
+            # Berechne die Änderung der Phase
             phase_change = self.natural_frequency + (self.coupling_strength / len(self.neighbors)) * neighbor_influence
+            print("self.natural_frequency",self.natural_frequency)
+            print("phase_change", phase_change)
             self.phase += phase_change
             self.phase = self.phase % (2 * math.pi)  # Halte die Phase im Bereich 0 bis 2*pi
 
@@ -35,8 +43,8 @@ class Glowworm:
     def run(self):
         """Kontinuierliche Schleife zur Aktualisierung der Phase."""
         while self.running:
+            time.sleep(0.5)  # Frequenz der Aktualisierungen; kann je nach Bedarf angepasst werden
             self.update_phase()
-            time.sleep(0.05)  # Frequenz der Aktualisierungen; kann je nach Bedarf angepasst werden
 
     def stop(self):
         """Beendet den Thread für das Glühwürmchen."""

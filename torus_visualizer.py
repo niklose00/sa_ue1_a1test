@@ -24,10 +24,13 @@ class TorusVisualizer:
             fill="black") for x in range(self.cols)] for y in range(self.rows)]
 
     def phase_to_color(self, phase):
-        """Konvertiert die Phase in eine Farbe, um das Leuchten zu simulieren."""
+        """Konvertiert die Phase in eine Farbe: aus (schwarz) und an (gelb)."""
         brightness = int((phase / (2 * 3.1415)) * 255)  # Normalisiere Phase auf [0, 255]
-        color = f'#{brightness:02x}{brightness:02x}{255 - brightness:02x}'  # Blau-Gelb-Farbton
+        # Schwarz für "aus" und Gelb für "an"
+        color = f'#{brightness:02x}{brightness:02x}00'  # Von Schwarz nach Gelb
         return color
+
+
 
     def update_gui(self):
         """Aktualisiert die Farben der Rechtecke basierend auf den Phasen der Glühwürmchen."""
@@ -54,7 +57,7 @@ class TorusVisualizer:
 
 # Testen der Visualisierung
 if __name__ == "__main__":
-    visualizer = TorusVisualizer(rows=10, cols=10, coupling_strength=2 .0)
+    visualizer = TorusVisualizer(rows=3, cols=3, coupling_strength=2.0)
     try:
         visualizer.start_simulation()
     except KeyboardInterrupt:
