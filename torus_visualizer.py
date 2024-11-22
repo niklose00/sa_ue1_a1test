@@ -32,9 +32,15 @@ class TorusVisualizer:
 
     def phase_to_color(self, phase):
         normalized_phase = (phase / (2 * math.pi)) % 1
-        if abs(normalized_phase - 0.5) < 0.2:  # Toleranz von 0.1 für visuelle Synchronisation
+        if abs(normalized_phase - 0.5) < 0.1:  # Toleranz von 0.1 für visuelle Synchronisation
             return "yellow"
         return "black"
+    
+    def phase_to_color_gradient(self, phase):
+        # Map phase to color for visual representation
+        brightness = int((math.sin(phase) + 1) * 127.5)  # Map phase to brightness value (0-255)
+        color = f"#{brightness:02x}{brightness:02x}00"  # Yellowish color gradient
+        return color
 
     def update_gui(self):
         """Aktualisiert die Farben der Rechtecke basierend auf den Phasen der Glühwürmchen."""
